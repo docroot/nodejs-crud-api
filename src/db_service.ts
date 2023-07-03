@@ -3,6 +3,7 @@ import { parse } from 'url';
 import * as uuid from 'uuid';
 import { User } from './entities/User'
 
+const dbPort = process.env['CRUD_DB_PORT'] ? process.env['CRUD_US_PORT'] : '4100';
 
 class DbService {
   private users: User[];
@@ -231,7 +232,6 @@ const createTestUsers = () => {
 
 createTestUsers();
 
-const port = 4000;
-server.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+server.listen(dbPort, () => {
+  console.log(`Server is running on port ${dbPort}`);
 });

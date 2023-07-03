@@ -3,29 +3,34 @@ import { parse, URL } from 'url';
 import * as uuid from 'uuid';
 import { User } from './entities/User'
 
-const baseUrl = 'https://localhost';
+// import dotenv from 'dotenv';
 
-const dbPort = '4000';
-const dbUrl = new URL('/api/user', baseUrl + ':' + dbPort);
+// dotenv.config();
+
+// Object.keys(process.env).forEach((key) => {
+//     if (key.startsWith('CRUD'))
+//         console.log(`${key}=[${process.env[key]}]`);
+// });
+
+
+//const baseUrl = process.env['CURD_BASE_URL'] ? process.env['CURD_BASE_URL'] : 'http://localhost';
+const usPort = process.env['CRUD_US_PORT'] ? process.env['CRUD_US_PORT'] : '4000';
+const dbHost = process.env['CRUD_DB_HOST'] ? process.env['CRUD_DB_HOST'] : 'localhost';
+const dbPort = process.env['CRUD_DB_PORT'] ? process.env['CRUD_DB_PORT'] : '4100';
+
+const db_req_options = {
+    hostname: dbHost,
+    port: dbPort,
+    path: '/api',
+    method: 'POST',
+};
 
 
 class UserService {
-    private users: User[];
-
-    constructor() {
-        this.users = [];
-    }
 
     async createUser(user: User) {
-        const options = {
-            hostname: 'localhost',
-            port: dbPort,
-            path: '/api',
-            method: 'POST',
-        };
-
         return new Promise((resolve, reject) => {
-            const req = http.request(options, (res) => {
+            const req = http.request(db_req_options, (res) => {
                 let responseData = '';
 
                 res.on('data', (chunk) => {
@@ -58,16 +63,10 @@ class UserService {
         });
     }
 
-    async getUsers() {
-        const options = {
-            hostname: 'localhost',
-            port: dbPort,
-            path: '/api',
-            method: 'POST',
-        };
 
+    async getUsers() {
         return new Promise((resolve, reject) => {
-            const req = http.request(options, (res) => {
+            const req = http.request(db_req_options, (res) => {
                 let responseData = '';
 
                 res.on('data', (chunk) => {
@@ -99,16 +98,10 @@ class UserService {
         });
     }
 
-    async getUserById(id: string) {
-        const options = {
-            hostname: 'localhost',
-            port: dbPort,
-            path: '/api',
-            method: 'POST',
-        };
 
+    async getUserById(id: string) {
         return new Promise((resolve, reject) => {
-            const req = http.request(options, (res) => {
+            const req = http.request(db_req_options, (res) => {
                 let responseData = '';
 
                 res.on('data', (chunk) => {
@@ -117,7 +110,6 @@ class UserService {
 
                 res.on('end', () => {
                     if (res.statusCode === 200) {
-                        console.log("RESP:\n" + responseData);
                         try {
                             const user = User.fromJson(JSON.parse(responseData));
                             console.log(user);
@@ -142,15 +134,8 @@ class UserService {
 
 
     async updateUser(id: string, user: User) {
-        const options = {
-            hostname: 'localhost',
-            port: dbPort,
-            path: '/api',
-            method: 'POST',
-        };
-
         return new Promise((resolve, reject) => {
-            const req = http.request(options, (res) => {
+            const req = http.request(db_req_options, (res) => {
                 let responseData = '';
 
                 res.on('data', (chunk) => {
@@ -158,7 +143,6 @@ class UserService {
                 });
 
                 res.on('end', () => {
-                    console.log(responseData);
                     if (res.statusCode === 200) {
                         try {
                             const updUser = User.fromJson(JSON.parse(responseData));
@@ -183,16 +167,10 @@ class UserService {
         });
     }
 
-    async deleteUser(id: string) {
-        const options = {
-            hostname: 'localhost',
-            port: dbPort,
-            path: '/api',
-            method: 'POST',
-        };
 
+    async deleteUser(id: string) {
         return new Promise((resolve, reject) => {
-            const req = http.request(options, (res) => {
+            const req = http.request(db_req_options, (res) => {
                 let responseData = '';
 
                 res.on('data', (chunk) => {
@@ -200,7 +178,6 @@ class UserService {
                 });
 
                 res.on('end', () => {
-                    console.log(responseData);
                     if (res.statusCode === 204) {
                         console.log(responseData);
                         resolve('User deleted');
@@ -240,7 +217,7 @@ const server = http.createServer((req: IncomingMessage, res: ServerResponse) => 
         res.setHeader('Content-Type', 'application/json');
         console.log(`PATH: [${path}]`);
 
-        if (method === 'GET' && (path === '/users' || path === '/users/')) {
+        if (method === 'GET' && (path === '/api/users' || path === '/api/users/')) {
             userService.getUsers().then((resolve) => {
                 res.statusCode = 200;
                 response = resolve;
@@ -250,8 +227,8 @@ const server = http.createServer((req: IncomingMessage, res: ServerResponse) => 
                 res.statusCode = 400;
                 throw error
             });
-        } else if (method === 'GET' && path.startsWith('/users/')) {
-            const userId = path.split('/')[2];
+        } else if (method === 'GET' && path.startsWith('/api/users/')) {
+            const userId = path.split('/')[3];
             if (!userId || !uuid.validate(userId)) {
                 response = 'User ID is not valid';
                 res.statusCode = 400;
@@ -268,7 +245,7 @@ const server = http.createServer((req: IncomingMessage, res: ServerResponse) => 
                     res.end(response);
                 });
             }
-        } else if (method === 'POST' && path === '/users') {
+        } else if (method === 'POST' && path === '/api/users') {
             console.log("POST");
             console.log(requestBody);
             const userInfo = JSON.parse(requestBody);
@@ -283,9 +260,9 @@ const server = http.createServer((req: IncomingMessage, res: ServerResponse) => 
                 res.statusCode = 400;
                 res.end(response);
             });
-        } else if (method === 'PUT' && path.startsWith('/users/')) {
+        } else if (method === 'PUT' && path.startsWith('/api/users/')) {
             console.log("PUT");
-            const userId = path.split('/')[2];
+            const userId = path.split('/')[3];
             if (!userId || !uuid.validate(userId)) {
                 response = 'User ID is not valid';
                 res.statusCode = 400;
@@ -305,9 +282,9 @@ const server = http.createServer((req: IncomingMessage, res: ServerResponse) => 
                     res.end(response);
                 });
             }
-        } else if (method === 'DELETE' && path.startsWith('/users/')) {
+        } else if (method === 'DELETE' && path.startsWith('/api/users/')) {
             console.log("DELETE");
-            const userId = path.split('/')[2];
+            const userId = path.split('/')[3];
             if (!userId || !uuid.validate(userId)) {
                 response = 'User ID is not valid';
                 res.statusCode = 400;
@@ -331,7 +308,6 @@ const server = http.createServer((req: IncomingMessage, res: ServerResponse) => 
     });
 });
 
-const port = 3100;
-server.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
+server.listen(usPort, () => {
+    console.log(`Server is running on port ${usPort}`);
 });
