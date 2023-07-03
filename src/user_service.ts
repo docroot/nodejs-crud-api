@@ -5,9 +5,9 @@ import { User } from './entities/User'
 
 
 export class UserService {
-    usPort: string;// = process.env['CRUD_US_PORT'] ? process.env['CRUD_US_PORT'] : '4000';
-    dbHost: string;// = process.env['CRUD_DB_HOST'] ? process.env['CRUD_DB_HOST'] : 'localhost';
-    dbPort: string;// = process.env['CRUD_DB_PORT'] ? process.env['CRUD_DB_PORT'] : '4100';
+    usPort: string;
+    dbHost: string;
+    dbPort: string;
     db_req_options: RequestOptions;
 
     constructor() {
