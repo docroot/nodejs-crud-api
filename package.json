@@ -4,7 +4,8 @@
   "description": "Implementation of simple CRUD API using in-memory database",
   "main": "src/index.ts",
   "scripts": {
-    "start": "node src",
+    "start:dev": "npm exec nodemon src/single_mode.ts",
+    "start:prod": "",
     "test": "test"
   },
   "author": "docroot",

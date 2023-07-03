@@ -1,36 +1,31 @@
-import http, { IncomingMessage, ServerResponse } from 'http';
+import http, { IncomingMessage, ServerResponse, RequestOptions } from 'http';
 import { parse, URL } from 'url';
 import * as uuid from 'uuid';
 import { User } from './entities/User'
 
-// import dotenv from 'dotenv';
 
-// dotenv.config();
+export class UserService {
+    usPort: string;// = process.env['CRUD_US_PORT'] ? process.env['CRUD_US_PORT'] : '4000';
+    dbHost: string;// = process.env['CRUD_DB_HOST'] ? process.env['CRUD_DB_HOST'] : 'localhost';
+    dbPort: string;// = process.env['CRUD_DB_PORT'] ? process.env['CRUD_DB_PORT'] : '4100';
+    db_req_options: RequestOptions;
 
-// Object.keys(process.env).forEach((key) => {
-//     if (key.startsWith('CRUD'))
-//         console.log(`${key}=[${process.env[key]}]`);
-// });
+    constructor() {
+        this.usPort = process.env['CRUD_US_PORT'] ? process.env['CRUD_US_PORT'] : '4000';
+        this.dbHost = process.env['CRUD_DB_HOST'] ? process.env['CRUD_DB_HOST'] : 'localhost';
+        this.dbPort = process.env['CRUD_DB_PORT'] ? process.env['CRUD_DB_PORT'] : '4100';
+        this.db_req_options = {
+            hostname: this.dbHost,
+            port: this.dbPort,
+            path: '/api',
+            method: 'POST',
+        };
+    }
 
-
-//const baseUrl = process.env['CURD_BASE_URL'] ? process.env['CURD_BASE_URL'] : 'http://localhost';
-const usPort = process.env['CRUD_US_PORT'] ? process.env['CRUD_US_PORT'] : '4000';
-const dbHost = process.env['CRUD_DB_HOST'] ? process.env['CRUD_DB_HOST'] : 'localhost';
-const dbPort = process.env['CRUD_DB_PORT'] ? process.env['CRUD_DB_PORT'] : '4100';
-
-const db_req_options = {
-    hostname: dbHost,
-    port: dbPort,
-    path: '/api',
-    method: 'POST',
-};
-
-
-class UserService {
 
     async createUser(user: User) {
         return new Promise((resolve, reject) => {
-            const req = http.request(db_req_options, (res) => {
+            const req = http.request(this.db_req_options, (res) => {
                 let responseData = '';
 
                 res.on('data', (chunk) => {
@@ -66,7 +61,7 @@ class UserService {
 
     async getUsers() {
         return new Promise((resolve, reject) => {
-            const req = http.request(db_req_options, (res) => {
+            const req = http.request(this.db_req_options, (res) => {
                 let responseData = '';
 
                 res.on('data', (chunk) => {
@@ -84,13 +79,13 @@ class UserService {
                         }
                         resolve(users);
                     } catch (error) {
-                        reject(error);
+                        reject({ code: 500, message: 'Internal server error: unable to parse data' });
                     }
                 });
             });
 
             req.on('error', (error) => {
-                reject(error);
+                reject({ code: 500, message: 'Internal server error' });
             });
 
             req.write(JSON.stringify({ 'cmd': 'USERS', 'data': '' }));
@@ -101,7 +96,7 @@ class UserService {
 
     async getUserById(id: string) {
         return new Promise((resolve, reject) => {
-            const req = http.request(db_req_options, (res) => {
+            const req = http.request(this.db_req_options, (res) => {
                 let responseData = '';
 
                 res.on('data', (chunk) => {
@@ -135,7 +130,7 @@ class UserService {
 
     async updateUser(id: string, user: User) {
         return new Promise((resolve, reject) => {
-            const req = http.request(db_req_options, (res) => {
+            const req = http.request(this.db_req_options, (res) => {
                 let responseData = '';
 
                 res.on('data', (chunk) => {
@@ -170,7 +165,7 @@ class UserService {
 
     async deleteUser(id: string) {
         return new Promise((resolve, reject) => {
-            const req = http.request(db_req_options, (res) => {
+            const req = http.request(this.db_req_options, (res) => {
                 let responseData = '';
 
                 res.on('data', (chunk) => {
@@ -196,118 +191,119 @@ class UserService {
             req.end();
         });
     }
+
+    start() {
+        const server = http.createServer((req: IncomingMessage, res: ServerResponse) => {
+            const { method, url } = req;
+
+            const parsedUrl = parse(url || '', true);
+            const path = parsedUrl.pathname || '';
+
+            let requestBody = '';
+
+            req.on('data', (chunk) => {
+                requestBody += chunk;
+            });
+
+            req.on('end', () => {
+                let response;
+                res.setHeader('Content-Type', 'application/json');
+                // console.log(`PATH: [${path}]`);
+
+                if (method === 'GET' && (path === '/api/users' || path === '/api/users/')) {
+                    this.getUsers().then((resolve) => {
+                        res.statusCode = 200;
+                        response = resolve;
+                        res.end(JSON.stringify(response));
+                    }).catch((reject) => {
+                        // console.log(reject);
+                        res.statusCode = reject.code;
+                        res.end(reject.message);
+                    });
+                } else if (method === 'GET' && path.startsWith('/api/users/')) {
+                    const userId = path.split('/')[3];
+                    if (!userId || !uuid.validate(userId)) {
+                        response = 'User ID is not valid';
+                        res.statusCode = 400;
+                        res.end(response);
+                    }
+                    else {
+                        this.getUserById(userId).then((resolve) => {
+                            response = resolve;
+                            res.statusCode = 200;
+                            res.end(JSON.stringify(response));
+                        }).catch((error) => {
+                            response = 'User not found';
+                            res.statusCode = 404;
+                            res.end(response);
+                        });
+                    }
+                } else if (method === 'POST' && path === '/api/users') {
+                    // console.log("POST");
+                    // console.log(requestBody);
+                    const userInfo = JSON.parse(requestBody);
+                    userInfo.id = '';
+                    let user = User.fromJson(userInfo);
+                    this.createUser(user).then((resolve) => {
+                        response = resolve;
+                        res.statusCode = 201;
+                        res.end(JSON.stringify(response));
+                    }).catch((error) => {
+                        response = 'Unables to create user';
+                        res.statusCode = 400;
+                        res.end(response);
+                    });
+                } else if (method === 'PUT' && path.startsWith('/api/users/')) {
+                    // console.log("PUT");
+                    const userId = path.split('/')[3];
+                    if (!userId || !uuid.validate(userId)) {
+                        response = 'User ID is not valid';
+                        res.statusCode = 400;
+                        res.end(response);
+                    }
+                    else {
+                        const userInfo = JSON.parse(requestBody);
+                        userInfo.id = userId;
+                        let user = User.fromJson(userInfo);
+                        this.updateUser(userId, userInfo).then((resolve) => {
+                            response = resolve;
+                            res.statusCode = 200;
+                            res.end(JSON.stringify(response));
+                        }).catch((error) => {
+                            response = 'Unables to update user';
+                            res.statusCode = 404;
+                            res.end(response);
+                        });
+                    }
+                } else if (method === 'DELETE' && path.startsWith('/api/users/')) {
+                    // console.log("DELETE");
+                    const userId = path.split('/')[3];
+                    if (!userId || !uuid.validate(userId)) {
+                        response = 'User ID is not valid';
+                        res.statusCode = 400;
+                        res.end(response);
+                    }
+                    else {
+                        this.deleteUser(userId).then((resolve) => {
+                            response = 'User deleted successfully';
+                            res.statusCode = 200;
+                            res.end(response);
+                        }).catch((error) => {
+                            response = 'User not found';
+                            res.statusCode = 404;
+                            res.end(response);
+                        });
+                    }
+                } else {
+                    response = 'Incorrect API entry point';
+                    res.statusCode = 404;
+                    res.end(response);
+                }
+            });
+        });
+
+        server.listen(this.usPort, () => {
+            console.log(`Users service is running on port ${this.usPort}`);
+        });
+    }
 }
-
-const userService = new UserService();
-
-const server = http.createServer((req: IncomingMessage, res: ServerResponse) => {
-    const { method, url } = req;
-
-    const parsedUrl = parse(url || '', true);
-    const path = parsedUrl.pathname || '';
-
-    let requestBody = '';
-
-    req.on('data', (chunk) => {
-        requestBody += chunk;
-    });
-
-    req.on('end', () => {
-        let response;
-        res.setHeader('Content-Type', 'application/json');
-        console.log(`PATH: [${path}]`);
-
-        if (method === 'GET' && (path === '/api/users' || path === '/api/users/')) {
-            userService.getUsers().then((resolve) => {
-                res.statusCode = 200;
-                response = resolve;
-                console.log("====" + response + "====");
-                res.end(JSON.stringify(response));
-            }).catch((error) => {
-                res.statusCode = 400;
-                throw error
-            });
-        } else if (method === 'GET' && path.startsWith('/api/users/')) {
-            const userId = path.split('/')[3];
-            if (!userId || !uuid.validate(userId)) {
-                response = 'User ID is not valid';
-                res.statusCode = 400;
-                res.end(response);
-            }
-            else {
-                userService.getUserById(userId).then((resolve) => {
-                    response = resolve;
-                    res.statusCode = 200;
-                    res.end(JSON.stringify(response));
-                }).catch((error) => {
-                    response = 'User not found';
-                    res.statusCode = 404;
-                    res.end(response);
-                });
-            }
-        } else if (method === 'POST' && path === '/api/users') {
-            console.log("POST");
-            console.log(requestBody);
-            const userInfo = JSON.parse(requestBody);
-            userInfo.id = '';
-            let user = User.fromJson(userInfo);
-            userService.createUser(user).then((resolve) => {
-                response = resolve;
-                res.statusCode = 201;
-                res.end(JSON.stringify(response));
-            }).catch((error) => {
-                response = 'Unables to create user';
-                res.statusCode = 400;
-                res.end(response);
-            });
-        } else if (method === 'PUT' && path.startsWith('/api/users/')) {
-            console.log("PUT");
-            const userId = path.split('/')[3];
-            if (!userId || !uuid.validate(userId)) {
-                response = 'User ID is not valid';
-                res.statusCode = 400;
-                res.end(response);
-            }
-            else {
-                const userInfo = JSON.parse(requestBody);
-                userInfo.id = userId;
-                let user = User.fromJson(userInfo);
-                userService.updateUser(userId, userInfo).then((resolve) => {
-                    response = resolve;
-                    res.statusCode = 200;
-                    res.end(JSON.stringify(response));
-                }).catch((error) => {
-                    response = 'Unables to update user';
-                    res.statusCode = 404;
-                    res.end(response);
-                });
-            }
-        } else if (method === 'DELETE' && path.startsWith('/api/users/')) {
-            console.log("DELETE");
-            const userId = path.split('/')[3];
-            if (!userId || !uuid.validate(userId)) {
-                response = 'User ID is not valid';
-                res.statusCode = 400;
-                res.end(response);
-            }
-            else {
-                userService.deleteUser(userId).then((resolve) => {
-                    response = 'User deleted successfully';
-                    res.statusCode = 200;
-                    res.end(response);
-                }).catch((error) => {
-                    response = 'User not found';
-                    res.statusCode = 404;
-                    res.end(response);
-                });
-            }
-        } else {
-            response = { error: 'Not found' };
-            res.statusCode = 404;
-        }
-    });
-});
-
-server.listen(usPort, () => {
-    console.log(`Server is running on port ${usPort}`);
-});
