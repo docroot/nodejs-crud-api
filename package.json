@@ -1,0 +1,42 @@
+{
+  "name": "nodejs-crud-api",
+  "version": "1.0.0",
+  "description": "Implementation of simple CRUD API using in-memory database",
+  "main": "src/index.ts",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start:dev": "npm exec nodemon src/single_mode.ts",
+    "start:prod": "npx webpack --mode production",
+    "start:multi": "npm exec nodemon src/index.ts"
+  },
+  "author": "docroot",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "ts-node": "^10.9.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/uuid": "^9.0.2",
+    "eslint": "^8.44.0",
+    "nodemon": "^1.19.4",
+    "ts-loader": "^9.4.4",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.1.6",
+    "webpack": "^5.88.1",
+    "webpack-cli": "^5.1.4"
+  },
+  "compilerOptions": {
+    "outDir": "./dist",
+    "module": "es6",
+    "target": "es5",
+    "jsx": "react-jsx",
+    "lib": [
+      "es6",
+      "dom"
+    ],
+    "sourceMap": true
+  }
+}
